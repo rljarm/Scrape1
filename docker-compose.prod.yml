@@ -1,0 +1,135 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./web_assistant/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:3000"
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=https://api.example.com
+      - REACT_APP_WS_URL=wss://api.example.com
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./web_assistant/backend
+      dockerfile: Dockerfile
+    expose:
+      - "8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=web_assistant.settings
+      - DEBUG=0
+      - ALLOWED_HOSTS=api.example.com,localhost
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=${DJANGO_SECRET_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BING_API_KEY=${BING_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  celery:
+    build:
+      context: ./web_assistant/backend
+      dockerfile: Dockerfile
+    command: celery -A web_assistant worker -l info
+    environment:
+      - DJANGO_SETTINGS_MODULE=web_assistant.settings
+      - DEBUG=0
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BING_API_KEY=${BING_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+    depends_on:
+      - backend
+      - redis
+    restart: unless-stopped
+
+  celery-beat:
+    build:
+      context: ./web_assistant/backend
+      dockerfile: Dockerfile
+    command: celery -A web_assistant beat -l info
+    environment:
+      - DJANGO_SETTINGS_MODULE=web_assistant.settings
+      - DEBUG=0
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - backend
+      - redis
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "443:443"
+    volumes:
+      - static_volume:/usr/share/nginx/html/static
+      - media_volume:/usr/share/nginx/html/media
+      - ./nginx:/etc/nginx/conf.d
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    restart: unless-stopped
+
+  redis:
+    image: redis:6
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:

@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  assistant:
+    build: .
+    volumes:
+      - ./data:/data
+      # Mount X11 socket for browser display
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DOWNLOAD_TIMEOUT=30
+      - CONCURRENT_REQUESTS=10
+      - DOWNLOAD_DELAY=1
+      - MIN_FILE_SIZE=110000     # 110KB in bytes
+      - MAX_FILE_SIZE=24971520   # 23.8MB in bytes
+      - TOTAL_DOWNLOAD_LIMIT=75161927680  # 70GB in bytes
+      - DISPLAY=${DISPLAY:-:0}   # X11 display
+      - QT_X11_NO_MITSHM=1      # Fix for some X11 issues
+    # Enable interactive pseudo-TTY
+    stdin_open: true
+    tty: true
+    # Add capabilities for browser
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp=unconfined
+    # Shared memory for browser
+    shm_size: '2gb'
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Default to collector agent
+    command: ["collect", "-a", "source_file=/data/sources.txt", "-a", "network_file=/data/networks.txt", "-a", "config_file=/data/config.json", "-a", "rotation_strategy=random"]
+
+  # Example commands for different agents:
+  #
+  # Collector (media processing):
+  # docker-compose run --rm assistant collect -a "source_file=/data/sources.txt" -a "network_file=/data/networks.txt" -a "config_file=/data/collector.json"
+  #
+  # Analyzer (content processing):
+  # docker-compose run --rm assistant analyze -a "source_file=/data/sources.txt" -a "network_file=/data/networks.txt" -a "config_file=/data/analyzer.json"
+  #
+  # Navigator (visual interface):
+  # docker-compose run --rm assistant navigate -a "source_file=/data/sources.txt" -a "network_file=/data/networks.txt" -a "config_file=/data/config.json"
+
+networks:
+  default:
+    driver: bridge

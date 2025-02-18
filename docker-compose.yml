@@ -1,0 +1,33 @@
+services:
+  web:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - /root/web_simple:/app
+    ports:
+      - "6666:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=web_assistant.settings
+      - PYTHONUNBUFFERED=1
+      - ALLOWED_HOSTS=95.211.93.240,localhost,127.0.0.1
+    command: >
+      bash -c "pip install -r /app/requirements.txt &&
+               python manage.py migrate &&
+               python manage.py runserver 0.0.0.0:8000 --noreload"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./web_assistant/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - web
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge

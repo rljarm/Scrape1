@@ -1,0 +1,32 @@
+{
+  "name": "Example Data",
+  "version": "1.0.0",
+  "description": "Sample JSON data file",
+  "items": [
+    {
+      "id": 1,
+      "title": "Item 1",
+      "value": "First item"
+    },
+    {
+      "id": 2,
+      "title": "Item 2",
+      "value": "Second item"
+    },
+    {
+      "id": 3,
+      "title": "Item 3",
+      "value": "Third item"
+    }
+  ],
+  "settings": {
+    "enabled": true,
+    "maxItems": 10,
+    "defaultView": "list"
+  },
+  "metadata": {
+    "created": "2025-02-17",
+    "author": "System",
+    "tags": ["example", "data", "json"]
+  }
+}
